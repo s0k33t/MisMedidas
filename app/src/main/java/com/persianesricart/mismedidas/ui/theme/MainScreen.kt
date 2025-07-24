@@ -79,6 +79,14 @@ fun MainScreen(navController: NavController,
                                 viewModel.mostrarRutaBaseDeDatos(context)
                             }
                         )
+                        DropdownMenuItem(
+                            text = { Text("Ajustes") },
+                            onClick = {
+                                expanded = false
+                                navController.navigate("settings")
+                            }
+                        )
+
 
                     }
                 }

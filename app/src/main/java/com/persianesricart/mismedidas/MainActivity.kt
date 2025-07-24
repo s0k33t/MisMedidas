@@ -40,6 +40,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.persianesricart.mismedidas.data.ajustes.AjustesDatabase
+import com.persianesricart.mismedidas.ui.ajustes.AjustesScreen
+import com.persianesricart.mismedidas.viewmodel.ajustes.AjustesViewModel
 import java.io.File
 import java.io.IOException
 
@@ -163,6 +168,21 @@ fun MisMedidasApp() {
                 )
             }
 
+            val ajustesViewModel: AjustesViewModel = viewModel(
+                factory = object: ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        return AjustesViewModel.create(LocalContext.current) as T
+                    }
+                }
+            )
+
+            composable("settings") {
+                AjustesScreen(
+                    navController = navController,
+                    ajustesViewModel = viewModel(factory = AjustesViewModelFactory(AjustesDatabase.getInstance(LocalContext.current).ajustesDao()))
+                )
+            }
+
             // Crear nueva nota
             composable("note") {
                 val context = LocalContext.current
@@ -189,6 +209,9 @@ fun MisMedidasApp() {
 
                 NoteScreen(navController, noteViewModel)
             }
+
+
+
         }
     }
 }
