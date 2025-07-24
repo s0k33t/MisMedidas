@@ -1,0 +1,1 @@
+// TipoDao.kt
