@@ -179,7 +179,6 @@ fun MisMedidasApp() {
 
             composable("settings") {
                 val context = LocalContext.current
-                // Creamos el ViewModel con su factory
                 val db = AjustesDatabase.getInstance(context)
                 val factory = AjustesViewModelFactory(
                     db.tipoDao(),

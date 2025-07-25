@@ -21,16 +21,6 @@ fun AjustesScreen(
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Tipos", "Modelos", "Acabados", "Colores")
 
-    val context = LocalContext.current
-    val db = AjustesDatabase.getInstance(context)
-    val factory = AjustesViewModelFactory(
-        db.tipoDao(),
-        db.modeloDao(),
-        db.acabadoDao(),
-        db.colorDao()
-    )
-    val ajustesViewModel: AjustesViewModel = viewModel(factory = factory)
-
     Column(modifier = Modifier.padding(16.dp)) {
         TabRow(selectedTabIndex = selectedTab) {
             tabs.forEachIndexed { index, title ->
@@ -41,9 +31,7 @@ fun AjustesScreen(
                 )
             }
         }
-
         Spacer(modifier = Modifier.height(16.dp))
-
         when (selectedTab) {
             0 -> AjustesTipoSection(ajustesViewModel)
             1 -> AjustesModeloSection(ajustesViewModel)
