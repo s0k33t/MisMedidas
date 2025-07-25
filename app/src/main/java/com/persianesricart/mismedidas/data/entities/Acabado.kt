@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 @Entity
 data class Acabado(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val nombre: String
+    val nombre: String,
+    val modeloId: Int
 )
 

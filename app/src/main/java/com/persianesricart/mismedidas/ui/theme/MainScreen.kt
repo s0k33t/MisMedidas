@@ -121,6 +121,10 @@ fun MainScreen(navController: NavController,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
+                            .clickable {
+                                // abrimos la nota con su ID
+                                navController.navigate("note/${nota.id}")
+                            }
                     ) {
                         Row(
                             modifier = Modifier

@@ -6,8 +6,8 @@ import com.persianesricart.mismedidas.data.ajustes.entities.Acabado
 
 @Dao
 interface AcabadoDao {
-    @Query("SELECT * FROM Acabado")
-    suspend fun getAll(): List<Acabado>
+    @Query("SELECT * FROM Acabado WHERE modeloId = :modeloId")
+    suspend fun getByModelo(modeloId: Int): List<Acabado>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(acabado: Acabado): Long

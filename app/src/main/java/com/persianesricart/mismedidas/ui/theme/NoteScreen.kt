@@ -23,12 +23,18 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation.NavController
 import com.persianesricart.mismedidas.data.entities.Medida
 import com.persianesricart.mismedidas.viewmodel.NoteViewModel
+import com.persianesricart.mismedidas.viewmodel.ajustes.AjustesViewModel
+import com.persianesricart.mismedidas.data.ajustes.entities.Tipo
 
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NoteScreen(navController: NavController, viewModel: NoteViewModel) {
+fun NoteScreen(
+    navController: NavController,
+    viewModel: NoteViewModel,
+    ajustesViewModel: AjustesViewModel
+) {
     val focusManager = LocalFocusManager.current
     val clienteFocus = remember { FocusRequester() }
     val referenciaFocus = remember { FocusRequester() }
@@ -37,6 +43,11 @@ fun NoteScreen(navController: NavController, viewModel: NoteViewModel) {
     val telefonoFocus = remember { FocusRequester() }
     val movilFocus = remember { FocusRequester() }
     val emailFocus = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        ajustesViewModel.loadTipos()
+    }
+    val tipos by ajustesViewModel.tipos.collectAsState(initial = emptyList())
 
     Scaffold(
         floatingActionButton = {
@@ -183,20 +194,19 @@ fun NoteScreen(navController: NavController, viewModel: NoteViewModel) {
             }
 
             items(viewModel.medidas) { medida ->
+
                 MedidaItem(
                     medida = medida,
                     ultimoMedidaId = viewModel.ultimoMedidaId,
-                    onUpdate = { nuevaMedida ->
-                        val index = viewModel.medidas.indexOf(medida)
-                        if (index != -1) {
-                            viewModel.updateMedida(index, nuevaMedida)
-                        }
+                    ajustesViewModel = ajustesViewModel,
+                    tipos = tipos,
+                    onUpdate = { nueva ->
+                        val idx = viewModel.medidas.indexOf(medida)
+                        if (idx != -1) viewModel.updateMedida(idx, nueva)
                     },
                     onDelete = {
-                        val index = viewModel.medidas.indexOf(medida)
-                        if (index != -1) {
-                            viewModel.removeMedida(index)
-                        }
+                        val idx = viewModel.medidas.indexOf(medida)
+                        if (idx != -1) viewModel.removeMedida(idx)
                     }
                 )
             }

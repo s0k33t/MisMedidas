@@ -15,18 +15,16 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import com.persianesricart.mismedidas.data.entities.Medida
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.persianesricart.mismedidas.viewmodel.ajustes.AjustesViewModel
+import com.persianesricart.mismedidas.data.ajustes.entities.Tipo
+import com.persianesricart.mismedidas.ui.DropdownSelector
+
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -34,24 +32,23 @@ import kotlinx.coroutines.launch
 fun MedidaItem(
     medida: Medida,
     ultimoMedidaId: Int,
+    ajustesViewModel: AjustesViewModel,
+    tipos: List<Tipo>,
     onUpdate: (Medida) -> Unit,
     onDelete: () -> Unit
 ) {
-    val tipos = listOf("Persiana", "Mini", "Seguridad", "Mosquitera", "Toldo", "Apilable", "Cortina")
-    val modelos = mapOf(
-        "Persiana" to listOf("RR-45", "LC-45", "RC-39"),
-        "Mini" to listOf("Alulux", "Compacto", "ThermoBox"),
-        "Seguridad" to listOf("RE1000-C", "VisionRoll"),
-        "Mosquitera" to listOf("Enrollable", "Plisada", "Minima", "Zip", "Fija"),
-        "Toldo" to listOf("Brazo invisible", "Punto recto", "Vertical Cable", "Brazo balcon", "Corredero", "Monoblock"),
-        "Apilable" to listOf("GradStore", "Lamisol", "Metalunic", "Grinotex"),
-        "Cortina" to listOf("Premium", "Premium Plus", "ZBox", "FitBox")
-    )
-    val acabados = mapOf(
-        "Persiana" to listOf("Tejido", "T/G", "CTA", "CTA s/guias"),
-        "Seguridad" to listOf("Tejido", "T/G")
-    )
-    val colores = listOf("Blanco", "Natural", "Marfil", "7016", "7022", "Grafito", "6009", "6005")
+
+    var tipo by rememberSaveable { mutableStateOf(medida.tipo) }
+    var modelo by rememberSaveable { mutableStateOf(medida.modelo) }
+    var acabado by rememberSaveable { mutableStateOf(medida.acabado ?: "") }
+    var color by rememberSaveable { mutableStateOf(medida.color) }
+
+    // Flujos de Ajustes
+    val tipos by ajustesViewModel.tipos.collectAsState(initial = emptyList())
+    val modelos by ajustesViewModel.modelos.collectAsState(initial = emptyList())
+    val acabados by ajustesViewModel.acabados.collectAsState(initial = emptyList())
+    val colores by ajustesViewModel.colores.collectAsState(initial = emptyList())
+
     val motores = listOf("Mecánico", "Radio")
 
     val udFocus = remember { FocusRequester() }
@@ -180,38 +177,73 @@ fun MedidaItem(
         Row(modifier = Modifier.fillMaxWidth()) {
             DropdownSelector(
                 label = "Tipo",
-                opciones = tipos,
-                seleccionActual = medida.tipo,
-                onSeleccion = {
-                    onUpdate(medida.copy(tipo = it, modelo = "", acabado = null))
+                opciones = tipos.map { it.nombre },
+                seleccionActual = tipo,
+                onSeleccion = { selNombre ->
+                    tipo = selNombre
+                    // recarga modelos
+                    val selTipo = tipos.first { it.nombre == selNombre }
+                    ajustesViewModel.loadModelos(selTipo.id)
+                    // limpia descendientes
+                    modelo = ""
+                    acabado = ""
+                    color = ""
+                    onUpdate(medida.copy(
+                        tipo = tipo,
+                        modelo = modelo,
+                        acabado = acabado.takeIf { it.isNotBlank() },
+                        color = color
+                    ))
                 },
                 modifier = Modifier.weight(1f)
             )
-            Spacer(modifier = Modifier.width(8.dp))
+
+            Spacer(modifier = Modifier.height(8.dp))
             DropdownSelector(
                 label = "Modelo",
-                opciones = modelos[medida.tipo] ?: emptyList(),
-                seleccionActual = medida.modelo,
-                onSeleccion = { onUpdate(medida.copy(modelo = it)) },
+                opciones = modelos.map { it.nombre },
+                seleccionActual = modelo,
+                onSeleccion = { selNombre ->
+                    modelo = selNombre
+                    val selModelo = modelos.first { it.nombre == selNombre }
+                    ajustesViewModel.loadAcabados(selModelo.id)
+                    ajustesViewModel.loadColores(selModelo.id)
+                    acabado = ""
+                    color = ""
+                    onUpdate(
+                        medida.copy(
+                            tipo = tipo,
+                            modelo = modelo,
+                            acabado = acabado.takeIf { it.isNotBlank() },
+                            color = color
+                        )
+                    )
+                },
                 modifier = Modifier.weight(1f)
             )
         }
-
         Spacer(modifier = Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
             DropdownSelector(
                 label = "Acabado",
-                opciones = acabados[medida.tipo] ?: emptyList(),
-                seleccionActual = medida.acabado ?: "",
-                onSeleccion = { onUpdate(medida.copy(acabado = it)) },
+                opciones = acabados.map { it.nombre },
+                seleccionActual = acabado,
+                onSeleccion = { sel ->
+                    acabado = sel
+                    onUpdate(medida.copy(acabado = sel))
+                },
                 modifier = Modifier.weight(1f)
             )
-            Spacer(modifier = Modifier.width(8.dp))
+
+            Spacer(Modifier.height(8.dp))
             DropdownSelector(
                 label = "Color",
-                opciones = colores,
-                seleccionActual = medida.color,
-                onSeleccion = { onUpdate(medida.copy(color = it)) },
+                opciones = colores.map { it.nombre },
+                seleccionActual = color,
+                onSeleccion = { sel ->
+                    color = sel
+                    onUpdate(medida.copy(color = sel))
+                },
                 modifier = Modifier.weight(1f)
             )
         }

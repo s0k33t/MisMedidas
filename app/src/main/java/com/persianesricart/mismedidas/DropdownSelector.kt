@@ -1,8 +1,8 @@
 package com.persianesricart.mismedidas.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+//import androidx.compose.material3.menuAnchor
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 @Composable
 fun DropdownSelector(
     label: String,
-    opciones: List<String>,
+    opciones: List<String>,            // <-- debe ser List<String>, no List<Unit>
     seleccionActual: String,
     onSeleccion: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -25,11 +25,12 @@ fun DropdownSelector(
         ) {
             OutlinedTextField(
                 value = seleccionActual,
-                onValueChange = {},
+                onValueChange = { /* no editable */ },
                 readOnly = true,
-                label = { Text(label) },
+                label = { Text(text = label) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
                 modifier = Modifier
-                    .menuAnchor()
+                    .menuAnchor()          // necesitas esta importación
                     .fillMaxWidth()
             )
 
@@ -39,11 +40,12 @@ fun DropdownSelector(
             ) {
                 opciones.forEach { opcion ->
                     DropdownMenuItem(
-                        text = { Text(opcion) },
+                        text = { Text(text = opcion) },
                         onClick = {
                             onSeleccion(opcion)
                             expanded = false
-                        }
+                        },
+                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
                     )
                 }
             }

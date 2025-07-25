@@ -41,8 +41,8 @@ dependencies {
     implementation ("androidx.activity:activity-compose:1.9.0")
     implementation ("androidx.compose.ui:ui:1.6.7")
     implementation ("androidx.compose.material:material-icons-extended:1.6.7") // Use the latest version
-    implementation (libs.material3)
-    //implementation (libs.material)
+    //implementation (libs.material3)
+    implementation("androidx.compose.material3:material3:1.2.1")
     implementation ("androidx.navigation:navigation-compose:2.7.7")
 
     // Room + Coroutine

@@ -49,6 +49,7 @@ import com.persianesricart.mismedidas.viewmodel.ajustes.AjustesViewModelFactory
 import java.io.File
 import java.io.IOException
 
+
 private lateinit var exportLauncher: ActivityResultLauncher<Intent>
 private lateinit var importLauncher: ActivityResultLauncher<Intent>
 
@@ -141,7 +142,8 @@ fun MisMedidasApp() {
         NavHost(navController = navController, startDestination = "main") {
 
             // Pantalla principal
-            composable("main?reload={reload}",
+            composable(
+                "main?reload={reload}",
                 arguments = listOf(navArgument("reload") {
                     defaultValue = "false"
                 })
@@ -169,13 +171,6 @@ fun MisMedidasApp() {
                 )
             }
 
-            //val ajustesViewModel: AjustesViewModel = viewModel(
-            //    factory = object: ViewModelProvider.Factory {
-            //        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            //            return AjustesViewModel.create(LocalContext.current) as T
-            //        }
-            //    }
-            //)
 
             composable("settings") {
                 val context = LocalContext.current
@@ -198,65 +193,79 @@ fun MisMedidasApp() {
             // Crear nueva nota
             composable("note") {
                 val context = LocalContext.current
-                val dao = AppDatabase.getInstance(context).notaDao()
-                val factory = NoteViewModelFactory(dao)
-                val noteViewModel: NoteViewModel = viewModel(factory = factory)
+                val noteDb = AppDatabase.getInstance(context).notaDao()
+                val noteFactory = NoteViewModelFactory(noteDb)
+                val noteViewModel: NoteViewModel = viewModel(factory = noteFactory)
 
-                NoteScreen(navController, noteViewModel)
+                val ajustesDb = AjustesDatabase.getInstance(context)
+                val ajustesFactory = AjustesViewModelFactory(
+                    ajustesDb.tipoDao(),
+                    ajustesDb.modeloDao(),
+                    ajustesDb.acabadoDao(),
+                    ajustesDb.colorDao()
+                )
+                val ajustesViewModel: AjustesViewModel = viewModel(factory = ajustesFactory)
+
+                NoteScreen(
+                    navController = navController,
+                    viewModel = noteViewModel,
+                    ajustesViewModel = ajustesViewModel
+                )
+            }
+
+            composable("note/{notaId") {
+                val context = LocalContext.current
+                val noteDb = AppDatabase.getInstance(context).notaDao()
+                val noteFactory = NoteViewModelFactory(noteDb)
+                val noteViewModel: NoteViewModel = viewModel(factory = noteFactory)
+
+                val ajustesDb = AjustesDatabase.getInstance(context)
+                val ajustesFactory = AjustesViewModelFactory(
+                    ajustesDb.tipoDao(),
+                    ajustesDb.modeloDao(),
+                    ajustesDb.acabadoDao(),
+                    ajustesDb.colorDao()
+                )
+                val ajustesViewModel: AjustesViewModel = viewModel(factory = ajustesFactory)
+
+                NoteScreen(navController, noteViewModel, ajustesViewModel = ajustesViewModel)
             }
 
             // Editar nota existente
-            composable("note/{notaId}", arguments = listOf(
-                navArgument("notaId") { type = NavType.IntType }
-            )) { backStackEntry ->
-                val notaId = backStackEntry.arguments?.getInt("notaId") ?: 0
+            composable(
+                "note/{notaId}",
+                arguments = listOf(navArgument("notaId") {
+                    type = NavType.IntType
+                })
+            ) { backStack ->
+                val notaId = backStack.arguments?.getInt("notaId") ?: 0
                 val context = LocalContext.current
-                val dao = AppDatabase.getInstance(context).notaDao()
-                val factory = NoteViewModelFactory(dao)
-                val noteViewModel: NoteViewModel = viewModel(factory = factory)
 
+                // NoteViewModel
+                val notaDao = AppDatabase.getInstance(context).notaDao()
+                val noteVmFactory = NoteViewModelFactory(notaDao)
+                val noteViewModel: NoteViewModel = viewModel(factory = noteVmFactory)
+                // carga la nota con todas sus medidas
                 LaunchedEffect(notaId) {
                     noteViewModel.loadNota(notaId)
                 }
 
-                NoteScreen(navController, noteViewModel)
-            }
+                // AjustesViewModel (igual que antes)
+                val ajustesDb = AjustesDatabase.getInstance(context)
+                val ajustesVmFactory = AjustesViewModelFactory(
+                    ajustesDb.tipoDao(),
+                    ajustesDb.modeloDao(),
+                    ajustesDb.acabadoDao(),
+                    ajustesDb.colorDao()
+                )
+                val ajustesViewModel: AjustesViewModel = viewModel(factory = ajustesVmFactory)
 
-
-
-        }
-    }
-}
-
-
-/*
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        println("MainActivity cargada")
-        setContent {
-            MisMedidasApp()
-        }
-    }
-}
-
-@Composable
-fun MisMedidasApp() {
-    println("Composición de MisMedidasApp")
-    val navController = rememberNavController()
-    MaterialTheme {
-        NavHost(navController = navController, startDestination = "main") {
-            composable("main") {
-                println("Composición de MainScreen")
-                val mainViewModel: MainViewModel = viewModel()
-                MainScreen(navController, mainViewModel)
-            }
-            composable("note") {
-                println("Composición de NoteScreen")
-                val noteViewModel: NoteViewModel = viewModel()
-                NoteScreen(navController, noteViewModel)
+                NoteScreen(
+                    navController = navController,
+                    viewModel = noteViewModel,
+                    ajustesViewModel = ajustesViewModel
+                )
             }
         }
     }
 }
- */

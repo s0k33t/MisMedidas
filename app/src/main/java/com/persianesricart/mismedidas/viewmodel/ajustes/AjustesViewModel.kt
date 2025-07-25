@@ -17,130 +17,115 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class AjustesViewModel constructor(
+class AjustesViewModel(
     private val tipoDao: TipoDao,
     private val modeloDao: ModeloDao,
     private val acabadoDao: AcabadoDao,
     private val colorDao: ColorDao
 ) : ViewModel() {
 
-    // ------- StateFlows públicos -------
+    // ── Tipos ─────────────────────────────────────────────────────────
     private val _tipos = MutableStateFlow<List<Tipo>>(emptyList())
     val tipos: StateFlow<List<Tipo>> = _tipos.asStateFlow()
 
+    // ── Modelos ───────────────────────────────────────────────────────
     private val _modelos = MutableStateFlow<List<Modelo>>(emptyList())
     val modelos: StateFlow<List<Modelo>> = _modelos.asStateFlow()
 
+    // Para cargar **todos** los modelos (dropdown de Colores)
     private val _modelosGeneral = MutableStateFlow<List<Modelo>>(emptyList())
     val modelosGeneral: StateFlow<List<Modelo>> = _modelosGeneral.asStateFlow()
 
+    // ── Acabados (filtrados por Modelo) ───────────────────────────────
     private val _acabados = MutableStateFlow<List<Acabado>>(emptyList())
     val acabados: StateFlow<List<Acabado>> = _acabados.asStateFlow()
 
+    // ── Colores (filtrados por Modelo) ────────────────────────────────
     private val _colores = MutableStateFlow<List<Color>>(emptyList())
     val colores: StateFlow<List<Color>> = _colores.asStateFlow()
 
     init {
-        // Al arrancar, cargo los datos estáticos
+        // Cargo solo aquellos flujos que no necesitan parámetro
         loadTipos()
         loadModelosGeneral()
-        loadAcabados()
+        // No llamamos aquí a loadAcabados() ni loadColores() sin id
     }
 
-    // --- Tipos ---
-    fun loadTipos() {
-        viewModelScope.launch {
-            _tipos.value = tipoDao.getAll()
-        }
+    // ===== Métodos para Tipos =====
+    fun loadTipos() = viewModelScope.launch {
+        _tipos.value = tipoDao.getAll()
     }
 
-    fun insertarTipo(nombre: String) {
-        viewModelScope.launch {
-            tipoDao.insert(Tipo(nombre = nombre))
-            loadTipos()
-        }
+    fun insertarTipo(nombre: String) = viewModelScope.launch {
+        tipoDao.insert(Tipo(nombre = nombre))
+        loadTipos()
     }
 
-    fun eliminarTipo(tipo: Tipo) {
-        viewModelScope.launch {
-            tipoDao.delete(tipo)
-            loadTipos()
-        }
+    fun eliminarTipo(tipo: Tipo) = viewModelScope.launch {
+        tipoDao.delete(tipo)
+        loadTipos()
     }
 
-    // --- Modelos (filtrado por Tipo) ---
-    fun loadModelos(tipoId: Int) {
-        viewModelScope.launch {
-            _modelos.value = modeloDao.getByTipo(tipoId)
-        }
+    // ===== Métodos para Modelos =====
+    fun loadModelos(tipoId: Int) = viewModelScope.launch {
+        _modelos.value = modeloDao.getByTipo(tipoId)
     }
 
-    // Carga **todos** los modelos (para el dropdown de colores)
-    fun loadModelosGeneral() {
-        viewModelScope.launch {
-            _modelosGeneral.value = modeloDao.getAll()
-        }
+    fun loadModelosGeneral() = viewModelScope.launch {
+        _modelosGeneral.value = modeloDao.getAll()
     }
 
-    fun insertarModelo(nombre: String, tipoId: Int) {
-        viewModelScope.launch {
-            modeloDao.insert(Modelo(nombre = nombre, tipoId = tipoId))
-            loadModelos(tipoId)
-            loadModelosGeneral()
-        }
+    fun insertarModelo(nombre: String, tipoId: Int) = viewModelScope.launch {
+        modeloDao.insert(Modelo(nombre = nombre, tipoId = tipoId))
+        loadModelos(tipoId)
+        loadModelosGeneral()
     }
 
-    fun eliminarModelo(modelo: Modelo) {
-        viewModelScope.launch {
-            modeloDao.delete(modelo)
-            loadModelosGeneral()
-        }
+    fun eliminarModelo(modelo: Modelo) = viewModelScope.launch {
+        modeloDao.delete(modelo)
+        // recargo ambos flujos
+        loadModelos(modelo.tipoId)
+        loadModelosGeneral()
     }
 
-    // --- Acabados (no dependen de otro) ---
-    fun loadAcabados() {
-        viewModelScope.launch {
-            _acabados.value = acabadoDao.getAll()
-        }
+    // ===== Métodos para Acabados =====
+    /** Filtra y carga los acabados del modelo dado */
+    fun loadAcabados(modeloId: Int) = viewModelScope.launch {
+        _acabados.value = acabadoDao.getByModelo(modeloId)
     }
 
-    fun insertarAcabado(nombre: String) {
-        viewModelScope.launch {
-            acabadoDao.insert(Acabado(nombre = nombre))
-            loadAcabados()
-        }
+    /** Inserta y recarga los acabados para ese modelo */
+    fun insertarAcabado(nombre: String, modeloId: Int) = viewModelScope.launch {
+        acabadoDao.insert(Acabado(nombre = nombre, modeloId = modeloId))
+        loadAcabados(modeloId)
     }
 
-    fun eliminarAcabado(acabado: Acabado) {
-        viewModelScope.launch {
-            acabadoDao.delete(acabado)
-            loadAcabados()
-        }
+    /** Elimina y recarga los acabados para el mismo modelo */
+    fun eliminarAcabado(acabado: Acabado) = viewModelScope.launch {
+        acabadoDao.delete(acabado)
+        loadAcabados(acabado.modeloId)
     }
 
-    // --- Colores (filtrado por Modelo) ---
-    fun loadColores(modeloId: Int) {
-        viewModelScope.launch {
-            _colores.value = colorDao.getByModelo(modeloId)
-        }
+    // ===== Métodos para Colores =====
+    /** Filtra y carga los colores del modelo dado */
+    fun loadColores(modeloId: Int) = viewModelScope.launch {
+        _colores.value = colorDao.getByModelo(modeloId)
     }
 
-    fun insertarColor(nombre: String, modeloId: Int) {
-        viewModelScope.launch {
-            colorDao.insert(Color(nombre = nombre, modeloId = modeloId))
-            loadColores(modeloId)
-        }
+    /** Inserta y recarga los colores para ese modelo */
+    fun insertarColor(nombre: String, modeloId: Int) = viewModelScope.launch {
+        colorDao.insert(Color(nombre = nombre, modeloId = modeloId))
+        loadColores(modeloId)
     }
 
-    fun eliminarColor(color: Color) {
-        viewModelScope.launch {
-            colorDao.delete(color)
-            // Opcional: recargar si quieres
-        }
+    /** Elimina y recarga los colores para el mismo modelo */
+    fun eliminarColor(color: Color) = viewModelScope.launch {
+        colorDao.delete(color)
+        loadColores(color.modeloId)
     }
 
     companion object {
-        /** Crea el ViewModel con DAOs obtenidos de AjustesDatabase */
+        /** Factory helper */
         fun create(context: Context): AjustesViewModel {
             val db = AjustesDatabase.getInstance(context)
             return AjustesViewModel(
