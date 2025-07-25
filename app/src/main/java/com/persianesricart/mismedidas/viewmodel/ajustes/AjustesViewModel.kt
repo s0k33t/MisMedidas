@@ -12,10 +12,17 @@ import com.persianesricart.mismedidas.data.ajustes.entities.Acabado
 import com.persianesricart.mismedidas.data.ajustes.entities.Color
 import com.persianesricart.mismedidas.data.ajustes.entities.Modelo
 import com.persianesricart.mismedidas.data.ajustes.entities.Tipo
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.core.app.ActivityCompat.finishAffinity
+import androidx.core.content.ContextCompat.startActivity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 class AjustesViewModel(
     private val tipoDao: TipoDao,
@@ -136,4 +143,60 @@ class AjustesViewModel(
             )
         }
     }
+
+    /** Lanza el SAF para crear un documento donde exportar ajustes.db */
+    fun exportarAjustesSAF(context: Context, launcher: ActivityResultLauncher<Intent>) {
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/octet-stream"
+            putExtra(Intent.EXTRA_TITLE, "ajustes.db")
+        }
+        launcher.launch(intent)
+    }
+
+    /** Copia ajustes.db al URI seleccionado por el usuario */
+    fun handleExportAjustesResult(context: Context, uri: Uri) {
+        try {
+            // Cierra la BD antes de copiar
+            AjustesDatabase.getInstance(context).close()
+
+            val source = context.getDatabasePath("ajustes.db")
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                source.inputStream().use { input -> input.copyTo(out) }
+            }
+            Toast.makeText(context, "Exportación de ajustes completada", Toast.LENGTH_SHORT).show()
+        } catch(e: Exception) {
+            Toast.makeText(context, "Error al exportar ajustes: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** Lanza el SAF para elegir un documento desde el que importar ajustes.db */
+    fun importarAjustesSAF(launcher: ActivityResultLauncher<Intent>) {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+        }
+        launcher.launch(intent)
+    }
+
+    /** Carga desde el URI seleccionado sobre ajustes.db y reinicia la app */
+    fun handleImportAjustesResult(context: Context, uri: Uri, restart: ()->Unit) {
+        try {
+            val dest = context.getDatabasePath("ajustes.db")
+
+            context.contentResolver.openInputStream(uri)?.use { inp ->
+                dest.outputStream().use { out -> inp.copyTo(out) }
+            }
+            val parent = dest.parentFile
+            val name = dest.name  // "ajustes.db"
+            listOf("-wal", "-shm").forEach { suffix ->
+                File(parent, name + suffix).delete()
+            }
+            Toast.makeText(context, "Importación de ajustes completada", Toast.LENGTH_LONG).show()
+            restart()
+        } catch(e: Exception) {
+            Toast.makeText(context, "Error al importar ajustes: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
 }

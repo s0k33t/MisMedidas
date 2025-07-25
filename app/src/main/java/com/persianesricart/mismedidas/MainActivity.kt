@@ -40,8 +40,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+
 import com.persianesricart.mismedidas.data.ajustes.AjustesDatabase
 import com.persianesricart.mismedidas.ui.ajustes.AjustesScreen
 import com.persianesricart.mismedidas.viewmodel.ajustes.AjustesViewModel
@@ -52,6 +51,8 @@ import java.io.IOException
 
 private lateinit var exportLauncher: ActivityResultLauncher<Intent>
 private lateinit var importLauncher: ActivityResultLauncher<Intent>
+private lateinit var exportAjustesLauncher: ActivityResultLauncher<Intent>
+private lateinit var importAjustesLauncher: ActivityResultLauncher<Intent>
 
 
 class MainActivity : ComponentActivity() {
@@ -94,6 +95,30 @@ class MainActivity : ComponentActivity() {
                         Toast.makeText(this, "Error al importar: ${e.message}", Toast.LENGTH_LONG).show()
                         e.printStackTrace()
                     }
+                }
+            }
+        }
+
+        exportAjustesLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            result.data?.data?.let { uri ->
+                AjustesViewModel.create(this)
+                    .handleExportAjustesResult(this, uri)
+            }
+        }
+        importAjustesLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                result.data?.data?.let { uri ->
+                    // reiniciar la app tras importar
+                    val restart = {
+                        finishAffinity()
+                        startActivity(intent)
+                    }
+                    AjustesViewModel.create(this)
+                        .handleImportAjustesResult(this, uri, restart)
                 }
             }
         }
@@ -185,7 +210,9 @@ fun MisMedidasApp() {
 
                 AjustesScreen(
                     navController = navController,
-                    ajustesViewModel = ajustesViewModel
+                    ajustesViewModel = ajustesViewModel,
+                    exportAjustesLauncher   = exportAjustesLauncher,
+                    importAjustesLauncher   = importAjustesLauncher
                 )
             }
 

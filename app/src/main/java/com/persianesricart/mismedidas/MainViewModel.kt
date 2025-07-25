@@ -192,68 +192,6 @@ class MainViewModel(private val dao: NotaDao) : ViewModel() {
         return file
     }
 
-    /*
-    fun exportarBaseDeDatos(context: Context) {
-        try {
-            val dbName = "mis_medidas.db"
-            val sourceFile = context.getDatabasePath(dbName)
-
-            val exportDir = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-                "MisMedidas"
-            )
-
-            if (!exportDir.exists()) {
-                exportDir.mkdirs()
-            }
-
-            val destFile = File(exportDir, "MisMedidasBackup.db")
-
-            // Si ya existe, eliminar para sobrescribir
-            if (destFile.exists()) {
-                destFile.delete()
-            }
-
-            sourceFile.copyTo(destFile, overwrite = true)
-
-            Toast.makeText(context, "Exportación completada en: ${destFile.absolutePath}", Toast.LENGTH_LONG).show()
-
-        } catch (e: IOException) {
-            Toast.makeText(context, "Error al exportar: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
-            e.printStackTrace()
-            println("ERROR: ${e.message + e.localizedMessage}")
-        }
-    }
-
-    fun importarBaseDeDatos(context: Context) {
-        try {
-            val dbName = "MisMedidas.db"
-            val destFile = context.getDatabasePath(dbName)
-
-            val importFile = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-                "MisMedidas/MisMedidasBackup.db"
-            )
-
-            if (!importFile.exists()) {
-                Toast.makeText(context, "Archivo de respaldo no encontrado", Toast.LENGTH_LONG).show()
-                return
-            }
-
-            // Cerrar conexiones abiertas a la base de datos si las hubiera
-            destFile.parentFile?.mkdirs()
-
-            // Sobrescribir la base de datos de la app
-            importFile.copyTo(destFile, overwrite = true)
-
-            Toast.makeText(context, "Importación completada correctamente", Toast.LENGTH_LONG).show()
-
-        } catch (e: IOException) {
-            Toast.makeText(context, "Error al importar: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
-            e.printStackTrace()
-        }
-    }
-     */
     fun exportarBaseDeDatosSAF(context: Context, launcher: ActivityResultLauncher<Intent>) {
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
@@ -301,9 +239,9 @@ class MainViewModel(private val dao: NotaDao) : ViewModel() {
     }
 
     fun mostrarRutaBaseDeDatos(context: Context) {
-        val dbFile = context.getDatabasePath("mis_medidas.db")
-        val path = dbFile.absolutePath
-        val sizeKb = if (dbFile.exists()) dbFile.length() / 1024 else 0
+        var dbFile = context.getDatabasePath("mis_medidas.db")
+        var path = dbFile.absolutePath
+        var sizeKb = if (dbFile.exists()) dbFile.length() / 1024 else 0
 
         Toast.makeText(
             context,
@@ -311,6 +249,18 @@ class MainViewModel(private val dao: NotaDao) : ViewModel() {
             Toast.LENGTH_LONG
         ).show()
         println("Ruta DB:\n$path\nTamaño: $sizeKb KB")
+
+        dbFile = context.getDatabasePath("ajustes.db")
+        path = dbFile.absolutePath
+        sizeKb = if (dbFile.exists()) dbFile.length() / 1024 else 0
+
+        Toast.makeText(
+            context,
+            "Ruta Ajustes: \n$path\nTamaño: $sizeKb KB",
+            Toast.LENGTH_LONG
+        ).show()
+        println("Ruta DB:\n$path\nTamaño: $sizeKb KB")
+
     }
 
 }

@@ -198,7 +198,7 @@ fun MedidaItem(
                 modifier = Modifier.weight(1f)
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.width(8.dp))
             DropdownSelector(
                 label = "Modelo",
                 opciones = modelos.map { it.nombre },
@@ -235,7 +235,7 @@ fun MedidaItem(
                 modifier = Modifier.weight(1f)
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.width(8.dp))
             DropdownSelector(
                 label = "Color",
                 opciones = colores.map { it.nombre },
