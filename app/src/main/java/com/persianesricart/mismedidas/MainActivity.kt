@@ -45,6 +45,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.persianesricart.mismedidas.data.ajustes.AjustesDatabase
 import com.persianesricart.mismedidas.ui.ajustes.AjustesScreen
 import com.persianesricart.mismedidas.viewmodel.ajustes.AjustesViewModel
+import com.persianesricart.mismedidas.viewmodel.ajustes.AjustesViewModelFactory
 import java.io.File
 import java.io.IOException
 
@@ -168,20 +169,32 @@ fun MisMedidasApp() {
                 )
             }
 
-            val ajustesViewModel: AjustesViewModel = viewModel(
-                factory = object: ViewModelProvider.Factory {
-                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                        return AjustesViewModel.create(LocalContext.current) as T
-                    }
-                }
-            )
+            //val ajustesViewModel: AjustesViewModel = viewModel(
+            //    factory = object: ViewModelProvider.Factory {
+            //        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            //            return AjustesViewModel.create(LocalContext.current) as T
+            //        }
+            //    }
+            //)
 
             composable("settings") {
+                val context = LocalContext.current
+                // Creamos el ViewModel con su factory
+                val db = AjustesDatabase.getInstance(context)
+                val factory = AjustesViewModelFactory(
+                    db.tipoDao(),
+                    db.modeloDao(),
+                    db.acabadoDao(),
+                    db.colorDao()
+                )
+                val ajustesViewModel: AjustesViewModel = viewModel(factory = factory)
+
                 AjustesScreen(
                     navController = navController,
-                    ajustesViewModel = viewModel(factory = AjustesViewModelFactory(AjustesDatabase.getInstance(LocalContext.current).ajustesDao()))
+                    ajustesViewModel = ajustesViewModel
                 )
             }
+
 
             // Crear nueva nota
             composable("note") {
