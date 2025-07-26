@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Dehaze
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
@@ -51,25 +52,14 @@ fun MainScreen(navController: NavController,
                 title = { Text("Mis Medidas") },
                 actions = {
                     IconButton(onClick = { expanded = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Menú")
+                        Icon(Icons.Default.Dehaze , contentDescription = "Menú" )
                     }
                     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                         DropdownMenuItem(
-                            text = { Text("Exportar base de datos") },
+                            text = { Text("Importación/Exportación") },
                             onClick = {
                                 expanded = false
-                                viewModel.exportarBaseDeDatosSAF(context, exportLauncher)
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Importar base de datos") },
-                            onClick = {
-                                expanded = false
-                                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                                    type = "*/*"
-                                    addCategory(Intent.CATEGORY_OPENABLE)
-                                }
-                                importLauncher.launch(intent)
+                                navController.navigate("import_export")
                             }
                         )
                         DropdownMenuItem(
@@ -95,7 +85,6 @@ fun MainScreen(navController: NavController,
         floatingActionButton = {
             FloatingActionButton(onClick = {
                 navController.navigate("note")
-                println("Botón pulsado")
             }) {
                 Icon(Icons.Default.Add, contentDescription = "Nueva Nota")
             }

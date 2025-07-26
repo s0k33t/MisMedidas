@@ -42,6 +42,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
 import com.persianesricart.mismedidas.data.ajustes.AjustesDatabase
+import com.persianesricart.mismedidas.ui.ImportExportScreen
 import com.persianesricart.mismedidas.ui.ajustes.AjustesScreen
 import com.persianesricart.mismedidas.viewmodel.ajustes.AjustesViewModel
 import com.persianesricart.mismedidas.viewmodel.ajustes.AjustesViewModelFactory
@@ -57,6 +58,7 @@ private lateinit var importAjustesLauncher: ActivityResultLauncher<Intent>
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        actionBar?.hide()
         exportLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             result.data?.data?.let { uri ->
                 MainViewModel(AppDatabase.getInstance(this).notaDao()).handleExportResult(this, uri)
@@ -196,6 +198,34 @@ fun MisMedidasApp() {
                 )
             }
 
+            composable("import_export") {
+                val context = LocalContext.current
+
+                // MainViewModel
+                val notaDao = AppDatabase.getInstance(context).notaDao()
+                val mainFactory = MainViewModelFactory(notaDao)
+                val mainViewModel: MainViewModel = viewModel(factory = mainFactory)
+
+                // AjustesViewModel
+                val ajustesDb = AjustesDatabase.getInstance(context)
+                val ajustesFactory = AjustesViewModelFactory(
+                    ajustesDb.tipoDao(),
+                    ajustesDb.modeloDao(),
+                    ajustesDb.acabadoDao(),
+                    ajustesDb.colorDao()
+                )
+                val ajustesViewModel: AjustesViewModel = viewModel(factory = ajustesFactory)
+
+                ImportExportScreen(
+                    navController             = navController,
+                    mainViewModel             = mainViewModel,
+                    ajustesViewModel          = ajustesViewModel,
+                    exportNotasLauncher       = exportLauncher,
+                    importNotasLauncher       = importLauncher,
+                    exportAjustesLauncher     = exportAjustesLauncher,
+                    importAjustesLauncher     = importAjustesLauncher
+                )
+            }
 
             composable("settings") {
                 val context = LocalContext.current

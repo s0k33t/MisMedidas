@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.persianesricart.mismedidas"
-    compileSdk = 34
+    compileSdk = 36  //34
 
     defaultConfig {
         applicationId  = "com.persianesricart.mismedidas"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36  //34
         versionCode = 1
         versionName = "1.0"
     }
@@ -42,7 +42,8 @@ dependencies {
     implementation ("androidx.compose.ui:ui:1.6.7")
     implementation ("androidx.compose.material:material-icons-extended:1.6.7") // Use the latest version
     //implementation (libs.material3)
-    implementation("androidx.compose.material3:material3:1.2.1")
+    //implementation("androidx.compose.material3:material3:1.2.1")
+    implementation("androidx.compose.material3:material3:1.3.2")
     implementation ("androidx.navigation:navigation-compose:2.7.7")
 
     // Room + Coroutine
