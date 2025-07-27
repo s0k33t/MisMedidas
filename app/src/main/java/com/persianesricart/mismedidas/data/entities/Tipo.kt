@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 @Entity
 data class Tipo(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val nombre: String
+    val nombre: String,
+    val orden: Int
 )

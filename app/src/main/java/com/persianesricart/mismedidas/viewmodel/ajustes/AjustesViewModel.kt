@@ -16,11 +16,13 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
+import androidx.compose.runtime.mutableStateListOf
 import androidx.core.app.ActivityCompat.finishAffinity
 import androidx.core.content.ContextCompat.startActivity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -36,8 +38,8 @@ class AjustesViewModel(
     val tipos: StateFlow<List<Tipo>> = _tipos.asStateFlow()
 
     // ── Modelos ───────────────────────────────────────────────────────
-    private val _modelos = MutableStateFlow<List<Modelo>>(emptyList())
-    val modelos: StateFlow<List<Modelo>> = _modelos.asStateFlow()
+    private val _modelos =  MutableStateFlow<List<Modelo>>(emptyList())
+    val modelos: StateFlow<List<Modelo>>  = _modelos.asStateFlow()
 
     // Para cargar **todos** los modelos (dropdown de Colores)
     private val _modelosGeneral = MutableStateFlow<List<Modelo>>(emptyList())
@@ -47,6 +49,9 @@ class AjustesViewModel(
     private val _acabados = MutableStateFlow<List<Acabado>>(emptyList())
     val acabados: StateFlow<List<Acabado>> = _acabados.asStateFlow()
 
+    private val _acabadosGeneral = MutableStateFlow<List<Modelo>>(emptyList())
+    val acabadosGeneral: StateFlow<List<Modelo>> = _modelosGeneral.asStateFlow()
+
     // ── Colores (filtrados por Modelo) ────────────────────────────────
     private val _colores = MutableStateFlow<List<Color>>(emptyList())
     val colores: StateFlow<List<Color>> = _colores.asStateFlow()
@@ -54,7 +59,7 @@ class AjustesViewModel(
     init {
         // Cargo solo aquellos flujos que no necesitan parámetro
         loadTipos()
-        loadModelosGeneral()
+        //loadModelosGeneral()
         // No llamamos aquí a loadAcabados() ni loadColores() sin id
     }
 
@@ -64,7 +69,8 @@ class AjustesViewModel(
     }
 
     fun insertarTipo(nombre: String) = viewModelScope.launch {
-        tipoDao.insert(Tipo(nombre = nombre))
+        val maxOrden = tipoDao.getMaxOrden() ?: 0
+        tipoDao.insert(Tipo(nombre = nombre, orden = maxOrden + 1))
         loadTipos()
     }
 
@@ -75,35 +81,56 @@ class AjustesViewModel(
 
     // ===== Métodos para Modelos =====
     fun loadModelos(tipoId: Int) = viewModelScope.launch {
-        _modelos.value = modeloDao.getByTipo(tipoId)
+        _modelos.value = modeloDao.getAllByTipo(tipoId)
+
     }
 
-    fun loadModelosGeneral() = viewModelScope.launch {
-        _modelosGeneral.value = modeloDao.getAll()
+    fun loadModelosGeneral(tipoId: Int) = viewModelScope.launch {
+        _modelosGeneral.value = modeloDao.getAllByTipo(tipoId)
     }
+
+    //fun insertarModelo(nombre: String, tipoId: Int) = viewModelScope.launch {
+    //    val maxOrden = modeloDao.getMaxOrden(tipoId) ?: 0
+    //    modeloDao.insert(Modelo(nombre = nombre, tipoId=tipoId, orden = maxOrden + 1))
+    //    loadModelos(tipoId)
+    //    loadModelosGeneral(tipoId)
+    // }
 
     fun insertarModelo(nombre: String, tipoId: Int) = viewModelScope.launch {
-        modeloDao.insert(Modelo(nombre = nombre, tipoId = tipoId))
+        val max = modeloDao.getMaxOrden(tipoId) ?: 0
+        modeloDao.insert(
+            Modelo(
+                nombre = nombre,
+                tipoId = tipoId,
+                orden = max + 1            // ← asignamos orden
+            )
+        )
         loadModelos(tipoId)
-        loadModelosGeneral()
     }
-
     fun eliminarModelo(modelo: Modelo) = viewModelScope.launch {
         modeloDao.delete(modelo)
-        // recargo ambos flujos
         loadModelos(modelo.tipoId)
-        loadModelosGeneral()
     }
+
+    //fun eliminarModelo(modelo: Modelo, tipoId: Int) = viewModelScope.launch {
+    //    modeloDao.delete(modelo)
+    //    // recargo ambos flujos
+    //    loadModelos(modelo.tipoId)
+    //    loadModelosGeneral(tipoId)
+    //}
 
     // ===== Métodos para Acabados =====
     /** Filtra y carga los acabados del modelo dado */
     fun loadAcabados(modeloId: Int) = viewModelScope.launch {
-        _acabados.value = acabadoDao.getByModelo(modeloId)
+       // _acabados.value = acabadoDao.getAllByModelo(modeloId)
+        val list = acabadoDao.getAllByModelo(modeloId)
+        _acabados.value = list
     }
 
     /** Inserta y recarga los acabados para ese modelo */
-    fun insertarAcabado(nombre: String, modeloId: Int) = viewModelScope.launch {
-        acabadoDao.insert(Acabado(nombre = nombre, modeloId = modeloId))
+    fun insertarAcabado(nombre: String, modeloId: Int, ) = viewModelScope.launch {
+        val maxOrden = acabadoDao.getMaxOrden(modeloId) ?: 0
+        acabadoDao.insert(Acabado(nombre = nombre, modeloId = modeloId, orden = maxOrden + 1))
         loadAcabados(modeloId)
     }
 
@@ -116,12 +143,15 @@ class AjustesViewModel(
     // ===== Métodos para Colores =====
     /** Filtra y carga los colores del modelo dado */
     fun loadColores(modeloId: Int) = viewModelScope.launch {
-        _colores.value = colorDao.getByModelo(modeloId)
+        val list = colorDao.getAllByModelo(modeloId)
+        _colores.value = list
+        //_colores.value = colorDao.getAllByModelo(modeloId)
     }
 
     /** Inserta y recarga los colores para ese modelo */
     fun insertarColor(nombre: String, modeloId: Int) = viewModelScope.launch {
-        colorDao.insert(Color(nombre = nombre, modeloId = modeloId))
+        val maxOrden = colorDao.getMaxOrden(modeloId) ?: 0
+        colorDao.insert(Color(nombre = nombre, modeloId = modeloId, orden = maxOrden + 1))
         loadColores(modeloId)
     }
 
@@ -199,4 +229,111 @@ class AjustesViewModel(
         }
     }
 
+
+    fun moverTipoArriba(tipo: Tipo) = viewModelScope.launch {
+        val all = tipoDao.getAll().toMutableList()
+        val idx = all.indexOfFirst { it.id == tipo.id }
+        if (idx > 0) {
+            val otro = all[idx - 1]
+            // intercambiamos orden
+            tipoDao.update(
+                tipo.copy(orden = otro.orden),
+                otro.copy(orden = tipo.orden)
+            )
+            loadTipos()
+        }
+    }
+
+    /** Intercambia con el siguiente */
+    fun moverTipoAbajo(tipo: Tipo) = viewModelScope.launch {
+        val all = tipoDao.getAll().toMutableList()
+        val idx = all.indexOfFirst { it.id == tipo.id }
+        if (idx >= 0 && idx < all.lastIndex) {
+            val otro = all[idx + 1]
+            tipoDao.update(
+                tipo.copy(orden = otro.orden),
+                otro.copy(orden = tipo.orden)
+            )
+            loadTipos()
+        }
+    }
+
+    fun moverColorArriba(color: Color) = viewModelScope.launch {
+        val list = colorDao.getAllByModelo(color.modeloId).toMutableList()
+        val idx = list.indexOfFirst { it.id == color.id }
+        if (idx > 0) {
+            val other = list[idx - 1]
+            colorDao.update(
+                color.copy(orden = other.orden),
+                other.copy(orden = color.orden)
+            )
+            loadColores(color.modeloId)
+        }
+    }
+
+    fun moverColorAbajo(color: Color) = viewModelScope.launch {
+        val list = colorDao.getAllByModelo(color.modeloId).toMutableList()
+        val idx = list.indexOfFirst { it.id == color.id }
+        if (idx >= 0 && idx < list.lastIndex) {
+            val other = list[idx + 1]
+            colorDao.update(
+                color.copy(orden = other.orden),
+                other.copy(orden = color.orden)
+            )
+            loadColores(color.modeloId)
+        }
+    }
+
+    fun moverAcabadoArriba(acabado: Acabado) = viewModelScope.launch {
+        val list = acabadoDao.getAllByModelo(acabado.modeloId).toMutableList()
+        val idx = list.indexOfFirst { it.id == acabado.id }
+        if (idx > 0) {
+            val other = list[idx - 1]
+            acabadoDao.update(
+                acabado.copy(orden = other.orden),
+                other.copy(orden = acabado.orden)
+            )
+            loadAcabados(acabado.modeloId)
+        }
+    }
+
+    /** Intercambia con el siguiente */
+    fun moverAcabadoAbajo(acabado: Acabado) = viewModelScope.launch {
+        val all = acabadoDao.getAllByModelo(acabado.modeloId).toMutableList()
+        val idx = all.indexOfFirst { it.id == acabado.id }
+        if (idx >= 0 && idx < all.lastIndex) {
+            val otro = all[idx + 1]
+            acabadoDao.update(
+                acabado.copy(orden = otro.orden),
+                otro.copy(orden = acabado.orden)
+            )
+            loadAcabados(acabado.modeloId)
+        }
+    }
+
+    fun moverModeloArriba(modelo: Modelo) = viewModelScope.launch {
+        val lista = modeloDao.getAllByTipo(modelo.tipoId).toMutableList()
+        val idx = lista.indexOfFirst { it.id == modelo.id }
+        if (idx > 0) {
+            val otro = lista[idx - 1]
+            modeloDao.update(
+                modelo.copy(orden = otro.orden),
+                otro.copy(orden = modelo.orden)
+            )
+            loadModelos(modelo.tipoId)
+        }
+    }
+
+    fun moverModeloAbajo(modelo: Modelo) = viewModelScope.launch {
+        val lista = modeloDao.getAllByTipo(modelo.tipoId).toMutableList()
+        val idx = lista.indexOfFirst { it.id == modelo.id }
+        if (idx >= 0 && idx < lista.lastIndex) {
+            val otro = lista[idx + 1]
+            modeloDao.update(
+                modelo.copy(orden = otro.orden),
+                otro.copy(orden = modelo.orden)
+            )
+            loadModelos(modelo.tipoId)
+        }
+    }
 }

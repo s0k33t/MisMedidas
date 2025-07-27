@@ -1,12 +1,18 @@
 package com.persianesricart.mismedidas.ui.ajustes
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.persianesricart.mismedidas.data.ajustes.entities.Modelo
 import com.persianesricart.mismedidas.data.ajustes.entities.Tipo
@@ -20,6 +26,7 @@ fun AjustesModeloSection(viewModel: AjustesViewModel) {
     var expandedTipo by remember { mutableStateOf(false) }
     val modelos by viewModel.modelos.collectAsState(initial = emptyList())
     var nuevoModelo by remember { mutableStateOf("") }
+    val focusManager = LocalFocusManager.current
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text("Selecciona Tipo", style = MaterialTheme.typography.titleMedium)
@@ -59,7 +66,7 @@ fun AjustesModeloSection(viewModel: AjustesViewModel) {
         Spacer(Modifier.height(16.dp))
 
         selectedTipo?.let { tipo ->
-            modelos.forEach { modelo: Modelo ->
+            modelos.forEachIndexed {idx, modelo ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -68,8 +75,24 @@ fun AjustesModeloSection(viewModel: AjustesViewModel) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(modelo.nombre)
-                    IconButton(onClick = { viewModel.eliminarModelo(modelo) }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Eliminar modelo")
+                    Row {
+                        // ▲ Arriba
+                        IconButton(
+                            enabled = idx > 0,
+                            onClick = { viewModel.moverModeloArriba(modelo) }
+                        ) {
+                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Subir")
+                        }
+                        // ▼ Abajo
+                        IconButton(
+                            enabled = idx < modelos.lastIndex,
+                            onClick = { viewModel.moverModeloAbajo(modelo) }
+                        ) {
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Bajar")
+                        }
+                        IconButton(onClick = { viewModel.eliminarModelo(modelo) }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Eliminar modelo")
+                        }
                     }
                 }
             }
@@ -80,7 +103,15 @@ fun AjustesModeloSection(viewModel: AjustesViewModel) {
                 value = nuevoModelo,
                 onValueChange = { nuevoModelo = it },
                 label = { Text("Nuevo modelo") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    if (nuevoModelo.isNotBlank()) {
+                        viewModel.insertarModelo(nuevoModelo, tipo.id)
+                        nuevoModelo = ""
+                    }
+                    focusManager.clearFocus()
+                })
             )
             Button(
                 onClick = {
