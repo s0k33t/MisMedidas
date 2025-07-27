@@ -7,6 +7,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +27,7 @@ import com.persianesricart.mismedidas.data.entities.Medida
 import com.persianesricart.mismedidas.viewmodel.NoteViewModel
 import com.persianesricart.mismedidas.viewmodel.ajustes.AjustesViewModel
 import com.persianesricart.mismedidas.data.ajustes.entities.Tipo
+
 
 
 
@@ -50,6 +53,18 @@ fun NoteScreen(
     val tipos by ajustesViewModel.tipos.collectAsState(initial = emptyList())
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = {
+                        navController.popBackStack()
+                    }) {
+                        Icon(Icons.Default.ArrowBackIosNew, contentDescription = "Atras")
+                    }
+                },
+                title = { Text("Nueva Nota", style = MaterialTheme.typography.headlineMedium) }
+            )
+        },
         floatingActionButton = {
             val ultima = viewModel.medidas.lastOrNull()
             Row(modifier = Modifier.padding(16.dp)) {
@@ -96,8 +111,6 @@ fun NoteScreen(
             .padding(padding)
             .padding(16.dp)) {
             item {
-                Text("Nueva Nota", style = MaterialTheme.typography.headlineMedium)
-
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = viewModel.cliente,

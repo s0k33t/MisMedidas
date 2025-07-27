@@ -94,7 +94,7 @@ fun MainScreen(navController: NavController,
             .padding(padding)
             .padding(16.dp)) {
 
-            Text("Mis Medidas", style = MaterialTheme.typography.headlineMedium)
+            Text("Mis Notas", style = MaterialTheme.typography.headlineMedium)
             OutlinedTextField(
                 value = filtro,
                 onValueChange = { filtro = it },

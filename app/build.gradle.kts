@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.persianesricart.mismedidas"
-    compileSdk = 36  //34
+    compileSdk = 34  //36
 
     defaultConfig {
         applicationId  = "com.persianesricart.mismedidas"
         minSdk = 24
-        targetSdk = 36  //34
+        targetSdk = 34  //36
         versionCode = 1
         versionName = "1.0"
     }
