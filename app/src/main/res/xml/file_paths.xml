@@ -3,4 +3,7 @@
     <cache-path
         name="shared_pdf"
         path="." />
+    <files-path
+        name="croquis"
+        path="croquis/"/>
 </paths>

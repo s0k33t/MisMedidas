@@ -50,6 +50,12 @@ import java.io.File
 import java.io.IOException
 
 
+import androidx.navigation.navArgument
+import com.persianesricart.mismedidas.viewmodel.CroquisViewModel
+import com.persianesricart.mismedidas.viewmodel.CroquisViewModelFactory
+import com.persianesricart.mismedidas.ui.croquis.CroquisDrawScreen
+
+
 private lateinit var exportLauncher: ActivityResultLauncher<Intent>
 private lateinit var importLauncher: ActivityResultLauncher<Intent>
 private lateinit var exportAjustesLauncher: ActivityResultLauncher<Intent>
@@ -321,6 +327,46 @@ fun MisMedidasApp() {
                     navController = navController,
                     viewModel = noteViewModel,
                     ajustesViewModel = ajustesViewModel
+                )
+            }
+
+            composable(
+                route = "croquis/{medidaId}",
+                arguments = listOf(navArgument("medidaId") { type = NavType.IntType })
+            ) { backStackEntry ->
+                val medidaId = backStackEntry.arguments?.getInt("medidaId") ?: 0
+                val context = LocalContext.current
+                val dao = AppDatabase.getInstance(context).croquisDao()
+                val factory = CroquisViewModelFactory(dao)
+                val croquisVM: CroquisViewModel = viewModel(factory = factory)
+
+                CroquisDrawScreen(
+                    navController = navController,
+                    medidaId = medidaId,
+                    croquisId = null,
+                    croquisVM = croquisVM
+                )
+            }
+
+            composable(
+                route = "croquis/{medidaId}/{croquisId}",
+                arguments = listOf(
+                    navArgument("medidaId") { type = NavType.IntType },
+                    navArgument("croquisId") { type = NavType.IntType },
+                )
+            ) { backStackEntry ->
+                val medidaId = backStackEntry.arguments?.getInt("medidaId") ?: 0
+                val croquisId = backStackEntry.arguments?.getInt("croquisId")
+                val context = LocalContext.current
+                val dao = AppDatabase.getInstance(context).croquisDao()
+                val factory = CroquisViewModelFactory(dao)
+                val croquisVM: CroquisViewModel = viewModel(factory = factory)
+
+                CroquisDrawScreen(
+                    navController = navController,
+                    medidaId = medidaId,
+                    croquisId = croquisId,
+                    croquisVM = croquisVM
                 )
             }
         }

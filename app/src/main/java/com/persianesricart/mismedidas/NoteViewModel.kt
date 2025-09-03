@@ -112,10 +112,45 @@ class   NoteViewModel(private val dao: NotaDao) : ViewModel() {
                 notaId
             }
 
-            dao.deleteMedidasByNotaId(notaIdGuardado)
-            _medidas.forEach {
-                dao.insertMedida(it.copy(notaId = notaIdGuardado))
+            //Medidas existentes en BD (antes de guardar)
+            val existentes = dao.getMedidasByNota(notaIdGuardado)
+            val existentesPorId = existentes.associateBy { it.id }
+
+            // IDs que el usuario mantiene actualmente en pantalla
+            val idsActuales = _medidas.mapNotNull { if (it.id != 0) it.id else null }.toSet()
+
+            // Eliminar SOLO las que ya no están en la pantalla
+            val idsAEliminar = existentesPorId.keys - idsActuales
+            if (idsAEliminar.isNotEmpty()) {
+                // Si tienes deleteMedidasByIds(ids: List<Int>) úsala; si no, borra una a una
+                try {
+                    dao.deleteMedidasByIds(idsAEliminar.toList())
+                } catch (_: Throwable) {
+                    // fallback por si no existe el método en tu DAO
+                    existentes.filter { it.id in idsAEliminar }.forEach { dao.deleteMedida(it) }
+                }
             }
+
+            // 5) Upsert de cada medida en memoria
+            //    - Si id == 0 -> INSERT y actualizar el id en la lista local
+            //    - Si id != 0 -> UPDATE
+            _medidas.forEachIndexed { index, m ->
+                if (m.id == 0) {
+                    val newId = dao.insertMedida(m.copy(notaId = notaIdGuardado)).toInt()
+                    _medidas[index] = _medidas[index].copy(id = newId, notaId = notaIdGuardado)
+                } else {
+                    // Asegura notaId correcto por si acaso
+                    dao.updateMedida(m.copy(notaId = notaIdGuardado))
+                }
+            }
+
+            _notaId.value = notaIdGuardado
+            onSaved()
+
+            //dao.deleteMedidasByNotaId(notaIdGuardado)
+            //_medidas.forEach {
+            //    dao.insertMedida(it.copy(notaId = notaIdGuardado))
+            //}
 
             _notaId.value = notaIdGuardado
             onSaved()

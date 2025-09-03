@@ -55,5 +55,7 @@ dependencies {
     implementation ("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
 
     //Preview
-    implementation ("androidx.compose.ui:ui-tooling-preview:1.5.3")
+    implementation ("androidx.compose.ui:ui-tooling-preview:1.6.7")
+    debugImplementation("androidx.compose.ui:ui-tooling:1.6.7")
+    debugImplementation("androidx.compose.ui:ui-test-manifest:1.6.7")
 }

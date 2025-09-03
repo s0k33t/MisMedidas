@@ -21,7 +21,7 @@ interface NotaDao {
     suspend fun updateNota(nota: Nota)
 
     @Insert
-    suspend fun insertMedida(medida: Medida)
+    suspend fun insertMedida(medida: Medida): Long
 
     @Query("DELETE FROM medida WHERE notaId = :notaId")
     suspend fun deleteMedidasByNotaId(notaId: Int)
@@ -29,8 +29,17 @@ interface NotaDao {
     @Query("DELETE FROM nota WHERE id = :notaId")
     suspend fun deleteNotaById(notaId: Int)
 
+    @Query("DELETE FROM medida WHERE id IN (:ids)")
+    suspend fun deleteMedidasByIds(ids: List<Int>)
+
+    @Delete
+    suspend fun deleteMedida(medida: Medida)
+
     @Query("SELECT * FROM medida WHERE notaId = :notaId")
     suspend fun getMedidasByNota(notaId: Int): List<Medida>
+
+    @Update
+    suspend fun updateMedida(medida: Medida)
 
 
 }

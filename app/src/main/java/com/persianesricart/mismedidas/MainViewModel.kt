@@ -5,19 +5,16 @@ import android.content.Intent
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
-import android.os.Environment
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
-import androidx.core.content.FileProvider
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.core.app.ActivityCompat.startActivityForResult
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.persianesricart.mismedidas.data.AppDatabase
 import com.persianesricart.mismedidas.data.dao.NotaDao
 import com.persianesricart.mismedidas.data.entities.Nota
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
@@ -43,31 +40,62 @@ class MainViewModel(private val dao: NotaDao) : ViewModel() {
         }
     }
 
+    /**
+     * Comparte la nota como PDF y adjunta todos los croquis (PNG) de sus medidas.
+     */
     fun compartirNota(context: Context, nota: Nota) {
         viewModelScope.launch {
-            val pdfFile = generatePdfFile(context, nota)
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.provider",
-                pdfFile
-            )
+            try {
+                val pdfFile = generatePdfFile(context, nota)
+                val uriPdf = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.provider",
+                    pdfFile
+                )
 
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "application/pdf"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "Nota de ${nota.cliente}")
-                putExtra(Intent.EXTRA_TEXT, "Adjunto PDF con las medidas de ${nota.cliente}")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                val uris = arrayListOf<Uri>()
+                uris.add(uriPdf)
+
+                // Adjuntar croquis de todas las medidas de la nota
+                val db = AppDatabase.getInstance(context)
+                val croquisDao = db.croquisDao()
+                val medidas = dao.getMedidasByNota(nota.id)
+                medidas.forEach { m ->
+                    val croquisList = croquisDao.getByMedida(m.id)
+                    croquisList.forEach { c ->
+                        val file = File(c.filePath)
+                        if (file.exists()) {
+                            val u = FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.provider",
+                                file
+                            )
+                            uris.add(u)
+                        }
+                    }
+                }
+
+                val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                    type = "application/octet-stream"
+                    putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                    putExtra(Intent.EXTRA_SUBJECT, "Nota de ${nota.cliente}")
+                    putExtra(Intent.EXTRA_TEXT, "Adjunto PDF y croquis de ${nota.cliente}")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+
+                context.startActivity(Intent.createChooser(intent, "Enviar nota por correo"))
+                // Si quieres borrar el PDF temporal después de compartir, descomenta:
+                // pdfFile.delete()
+
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error al compartir: ${e.message}", Toast.LENGTH_LONG).show()
             }
-
-            context.startActivity(Intent.createChooser(intent, "Enviar nota por correo"))
-
-            //delay(10000)
-            //pdfFile.delete()
         }
     }
 
-
+    /**
+     * Genera el PDF en cache/nota_<id>.pdf
+     */
     private suspend fun generatePdfFile(context: Context, nota: Nota): File {
         val medidas = dao.getMedidasByNota(nota.id)
 
@@ -95,14 +123,16 @@ class MainViewModel(private val dao: NotaDao) : ViewModel() {
         canvas.drawText("Medidas:", 40f, y.toFloat(), paint)
         y += 20
 
-        medidas.forEachIndexed { index, medida ->
+        medidas.forEach { medida ->
             if (y > 800) {
                 pdfDocument.finishPage(page)
                 val newPage = pdfDocument.startPage(pageInfo)
+                // (opcional) Redibujar cabecera por página
+                pdfDocument.finishPage(newPage)
                 y = 60
             }
             canvas.drawText(
-                "${medida.ud} - ${medida.ancho}x${medida.alto} - ${medida.tipo} en ${medida.modelo} ${medida.acabado} ${medida.color}",
+                "${medida.ud} - ${medida.ancho}x${medida.alto} - ${medida.tipo} en ${medida.modelo} ${medida.acabado ?: ""} ${medida.color}",
                 40f, y.toFloat(), paint
             )
 
@@ -121,20 +151,21 @@ class MainViewModel(private val dao: NotaDao) : ViewModel() {
                 canvas.drawText("   Comentario: ${medida.comentario}", 50f, y.toFloat(), paint)
             }
             y += 10
-            canvas.drawText("---------------------------------------------------------------------------------------------------------",40f, y.toFloat(), paint)
+            canvas.drawText("---------------------------------------------------------------------------------------------------------", 40f, y.toFloat(), paint)
             y += 20
         }
 
         pdfDocument.finishPage(page)
 
-
         val file = File(context.cacheDir, "nota_${nota.id}.pdf")
         pdfDocument.writeTo(FileOutputStream(file))
         pdfDocument.close()
-
-
         return file
     }
+
+    // ---------------------
+    // Export / Import (SAF)
+    // ---------------------
 
     fun exportarBaseDeDatosSAF(context: Context, launcher: ActivityResultLauncher<Intent>) {
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
@@ -155,7 +186,7 @@ class MainViewModel(private val dao: NotaDao) : ViewModel() {
 
     fun handleExportResult(context: Context, uri: Uri) {
         try {
-            // Forzar cierre de la base de datos antes de copiarla
+            // Cerrar base de datos por seguridad
             AppDatabase.getInstance(context).close()
 
             val input = context.getDatabasePath("mis_medidas.db")
@@ -168,15 +199,28 @@ class MainViewModel(private val dao: NotaDao) : ViewModel() {
         }
     }
 
+
     fun handleImportResult(context: Context, uri: Uri) {
         try {
-            val output = context.getDatabasePath("mis_medidas.db")
+            // Cerrar base de datos y borrar -wal/-shm (WAL mode)
+            AppDatabase.getInstance(context).close()
+
+            val dbName = "mis_medidas.db"
+            val dbFile = context.getDatabasePath(dbName)
+            val dbDir = dbFile.parentFile!!
+
+            // Eliminar WAL/SHM
+            File(dbDir, "$dbName-wal").delete()
+            File(dbDir, "$dbName-shm").delete()
+
+            // Sobrescribir
             context.contentResolver.openInputStream(uri)?.use { input ->
-                output.outputStream().use { fileOut ->
-                    input.copyTo(fileOut)
-                }
+                dbFile.outputStream().use { out -> input.copyTo(out) }
             }
-            Toast.makeText(context, "Importación completada", Toast.LENGTH_SHORT).show()
+
+            Toast.makeText(context, "Importación completada. Reinicie la app.", Toast.LENGTH_LONG).show()
+        } catch (e: IOException) {
+            Toast.makeText(context, "Error al importar: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             Toast.makeText(context, "Error al importar: ${e.message}", Toast.LENGTH_LONG).show()
         }
