@@ -3,6 +3,7 @@ package com.persianesricart.mismedidas.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -27,8 +28,7 @@ import com.persianesricart.mismedidas.data.entities.Medida
 import com.persianesricart.mismedidas.viewmodel.NoteViewModel
 import com.persianesricart.mismedidas.viewmodel.ajustes.AjustesViewModel
 import com.persianesricart.mismedidas.data.ajustes.entities.Tipo
-
-
+import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,6 +39,8 @@ fun NoteScreen(
     ajustesViewModel: AjustesViewModel
 ) {
     val focusManager = LocalFocusManager.current
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     val clienteFocus = remember { FocusRequester() }
     val referenciaFocus = remember { FocusRequester() }
     val direccionFocus = remember { FocusRequester() }
@@ -89,6 +91,13 @@ fun NoteScreen(
 
                     viewModel.addMedida(nueva)
                     viewModel.setUltimoMedidaId(nueva.id)
+
+                    scope.launch{
+                        val lastIndex = viewModel.medidas.lastIndex
+                        if(lastIndex >= 0){
+                            listState.animateScrollToItem(lastIndex, scrollOffset = -150)
+                        }
+                    }
                 }) {
                     Icon(Icons.Default.Add, contentDescription = "Añadir Medida")
                 }
@@ -109,7 +118,8 @@ fun NoteScreen(
     ) { padding ->
         LazyColumn(modifier = Modifier
             .padding(padding)
-            .padding(16.dp)) {
+            .padding(16.dp),
+            state = listState) {
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
@@ -222,7 +232,17 @@ fun NoteScreen(
                         if (idx != -1) viewModel.removeMedida(idx)
                     }
                 )
+                //Linea separadora bajo cada medida
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                )
             }
+
+
+            //Espaciador final para no tapar con FABs
+            item {Spacer(modifier = Modifier.height(96.dp))}
         }
     }
 }

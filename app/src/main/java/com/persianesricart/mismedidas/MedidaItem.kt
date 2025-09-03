@@ -59,6 +59,12 @@ fun MedidaItem(
     val cargoAltoFocus = remember { FocusRequester() }
     //val focusRequester = remember { FocusRequester() }
 
+    LaunchedEffect(ultimoMedidaId,medida.id) {
+        if(medida.id == ultimoMedidaId){
+            udFocus.requestFocus()
+        }
+    }
+
 
     LaunchedEffect(Unit) {
         if (medida.id == ultimoMedidaId) {
