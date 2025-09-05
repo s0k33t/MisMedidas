@@ -30,4 +30,10 @@ interface CroquisDao {
 
     @Query("DELETE FROM croquis WHERE medidaId = :medidaId")
     suspend fun deleteByMedida(medidaId: Int)
+
+    @Query("SELECT * FROM Croquis")
+    suspend fun getAll(): List<Croquis>
+
+    @Query("DELETE FROM Croquis")
+    suspend fun deleteAll()
 }

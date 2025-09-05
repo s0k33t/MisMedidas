@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
@@ -56,6 +57,21 @@ fun NoteScreen(
     val croquisVM: CroquisViewModel = viewModel(factory = croquisFactory)
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(if (viewModel.notaId != null && viewModel.notaId != 0) "Editar nota" else "Nueva nota")
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Atrás"
+                        )
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             val ultima = viewModel.medidas.lastOrNull()
             Row(modifier = Modifier.padding(16.dp)) {
@@ -73,7 +89,8 @@ fun NoteScreen(
                         comentario = "",
                         luz = ultima?.luz ?: false,
                         cargoAncho = ultima?.cargoAncho,
-                        cargoAlto = ultima?.cargoAlto
+                        cargoAlto = ultima?.cargoAlto,
+                        uuid = java.util.UUID.randomUUID().toString()
                     )
                     viewModel.addMedida(nueva)
                     viewModel.setUltimoMedidaId(nueva.id)
@@ -102,7 +119,7 @@ fun NoteScreen(
         ) {
             // Cabecera de nota
             item {
-                Text("Nueva Nota", style = MaterialTheme.typography.headlineMedium)
+                //Text("Nueva Nota", style = MaterialTheme.typography.headlineMedium)
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

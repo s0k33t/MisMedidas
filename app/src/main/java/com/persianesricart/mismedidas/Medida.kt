@@ -1,12 +1,19 @@
 package com.persianesricart.mismedidas.data.entities
 
-import androidx.room.Entity
-import androidx.room.ForeignKey
-import androidx.room.PrimaryKey
+//import androidx.room.Entity
+//import androidx.room.ForeignKey
+//import androidx.room.PrimaryKey
+import androidx.room.*
 
-@Entity
+@Entity(
+    tableName = "Medida",
+    indices = [
+        Index(value = ["uuid"], unique = true) // ← único que dejamos
+    ]
+)
 data class Medida(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0,
     val notaId: Int,
     val ud: String,
     val ancho: String,
@@ -19,5 +26,6 @@ data class Medida(
     val acabado: String? = null,
     val color: String,
     val motor: String? = "Mecanico",
-    val comentario: String
+    val comentario: String,
+    val uuid: String? = null
 )

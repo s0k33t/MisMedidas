@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.sqlite.SQLiteDatabase
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -40,6 +41,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.lifecycleScope
 
 import com.persianesricart.mismedidas.data.ajustes.AjustesDatabase
 import com.persianesricart.mismedidas.ui.ImportExportScreen
@@ -51,9 +53,11 @@ import java.io.IOException
 
 
 import androidx.navigation.navArgument
+import com.persianesricart.mismedidas.data.dao.MedidaDao
 import com.persianesricart.mismedidas.viewmodel.CroquisViewModel
 import com.persianesricart.mismedidas.viewmodel.CroquisViewModelFactory
 import com.persianesricart.mismedidas.ui.croquis.CroquisDrawScreen
+import kotlinx.coroutines.launch
 
 
 private lateinit var exportLauncher: ActivityResultLauncher<Intent>
@@ -70,7 +74,139 @@ class MainActivity : ComponentActivity() {
                 MainViewModel(AppDatabase.getInstance(this).notaDao()).handleExportResult(this, uri)
             }
         }
+        lifecycleScope.launch {
+            val db = AppDatabase.getInstance(this@MainActivity)
+            backfillMedidaUuids(db.medidaDao())
+        }
+        importLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val uri = result.data?.data ?: return@registerForActivityResult
+                try {
+                    // Grant persistente si el proveedor lo soporta
+                    try {
+                        contentResolver.takePersistableUriPermission(
+                            uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    } catch (_: Exception) {}
 
+                    val dbName = "mis_medidas.db"
+                    val dbFile = getDatabasePath(dbName)
+                    val dbDir  = dbFile.parentFile!!
+
+                    // 1) Cerrar Room
+                    com.persianesricart.mismedidas.data.AppDatabase.getInstance(this).close()
+
+                    // 2) Limpiar WAL/SHM
+                    runCatching { File(dbDir, "$dbName-wal").delete() }
+                    runCatching { File(dbDir, "$dbName-shm").delete() }
+
+                    // 3) Copiar
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        dbFile.outputStream().use { out -> input.copyTo(out) }
+                    }
+
+                    // 4) Limpiar por si el archivo importado traía journaling extra
+                    runCatching { File(dbDir, "$dbName-wal").delete() }
+                    runCatching { File(dbDir, "$dbName-shm").delete() }
+
+                    // 5) Mostrar tamaño/fecha tras copiar (debug)
+                    val size = dbFile.length()
+                    val mod = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                        .format(java.util.Date(dbFile.lastModified()))
+                    android.widget.Toast
+                        .makeText(this, "Import OK (${size} bytes, $mod). Reiniciando…", android.widget.Toast.LENGTH_LONG)
+                        .show()
+
+                    // 6) Reinicio duro del proceso
+                    finishAffinity()
+                    startActivity(intent)
+                    Runtime.getRuntime().exit(0)
+
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(this, "Error al importar: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                    e.printStackTrace()
+                }
+            }
+        }
+        /*
+        importLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val uri = result.data?.data ?: return@registerForActivityResult
+
+                // (opcional) persist permission
+                runCatching {
+                    contentResolver.takePersistableUriPermission(
+                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                }
+
+                // Usa el doctor
+                val report = com.persianesricart.mismedidas.data.DbDoctor.importNotasWithRepair(this, uri)
+                if (report.ok) {
+                    Toast.makeText(this, "Importación correcta. Reiniciando…", Toast.LENGTH_LONG).show()
+                    finishAffinity()
+                    startActivity(intent)
+                    Runtime.getRuntime().exit(0)
+                } else {
+                    Toast.makeText(this, "Importación fallida: ${report.message}", Toast.LENGTH_LONG).show()
+                    android.util.Log.e("DbDoctor", "Detalles:\n${report.details}")
+                }
+            }
+        }
+        */
+        /*
+        importLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val uri = result.data?.data ?: return@registerForActivityResult
+                try {
+                    // Asegura permiso de lectura persistente del SAF
+                    contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                } catch (_: Exception) { /* en algunos OEM no hace falta */ }
+
+                try {
+                    val dbName = "mis_medidas.db" // ¡asegúrate que es exactamente el que usas en AppDatabase!
+                    val dbFile = getDatabasePath(dbName)
+                    val dbDir  = dbFile.parentFile!!
+
+                    // 1) Cerrar Room antes de tocar archivos
+                    com.persianesricart.mismedidas.data.AppDatabase.getInstance(this).close()
+
+                    // 2) Borrar WAL/SHM si existieran
+                    kotlin.runCatching { File(dbDir, "$dbName-wal").delete() }
+                    kotlin.runCatching { File(dbDir, "$dbName-shm").delete() }
+
+                    // 3) Copiar el archivo importado a la ruta de Room
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        dbFile.outputStream().use { out ->
+                            input.copyTo(out)
+                        }
+                    }
+
+                    // 4) Parchea el archivo (crea tabla Croquis, añade columnas recientes, fija user_version=3)
+                    patchImportedNotasDb(dbFile)
+
+                    // 5) Seguridad extra: vuelve a borrar cualquier WAL/SHM que pueda haber quedado
+                    kotlin.runCatching { File(dbDir, "$dbName-wal").delete() }
+                    kotlin.runCatching { File(dbDir, "$dbName-shm").delete() }
+
+                    Toast.makeText(this, "Importación completada. Reiniciando…", Toast.LENGTH_LONG).show()
+
+                    // 6) Reinicia el proceso para reabrir Room desde 0 con el nuevo archivo
+                    finishAffinity()
+                    startActivity(intent)
+                    Runtime.getRuntime().exit(0)
+
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Error al importar: ${e.message}", Toast.LENGTH_LONG).show()
+                    e.printStackTrace()
+                }
+            }
+        }
+        */
+        /*
         importLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 result.data?.data?.let { uri ->
@@ -106,7 +242,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-
+        */
         exportAjustesLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
@@ -157,8 +293,65 @@ class MainActivity : ComponentActivity() {
 
         //supportActionBar?.hide()
     }
+
+    suspend fun backfillMedidaUuids(dao: MedidaDao) {
+        val sinUuid = dao.getAllWithoutUuid()
+        for (m in sinUuid) {
+            val fixed = m.copy(uuid = java.util.UUID.randomUUID().toString())
+            dao.update(fixed)
+        }
+    }
 }
 
+// Parchea el archivo de notas importado para que cuadre con el esquema actual (v3)
+private fun patchImportedNotasDb(dbFile: File) {
+    val path = dbFile.absolutePath
+    val db = SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READWRITE)
+
+    try {
+        // seguridad
+        db.execSQL("PRAGMA foreign_keys=OFF;")
+
+        // === Tablas mínimas ===
+        // Croquis (por si el backup viene de una versión sin croquis)
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS Croquis (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                medidaId INTEGER NOT NULL,
+                nombre TEXT NOT NULL,
+                filePath TEXT NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                FOREIGN KEY(medidaId) REFERENCES Medida(id) ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+
+        // === Columnas que pudieron añadirse en el tiempo ===
+        // Nota: email, referencia (si tuviste estas ampliaciones)
+        runCatching { db.execSQL("ALTER TABLE Nota ADD COLUMN email TEXT") }
+        runCatching { db.execSQL("ALTER TABLE Nota ADD COLUMN referencia TEXT") }
+
+        // Medida: campos de luz/cargo y motor/acabado si no estaban
+        runCatching { db.execSQL("ALTER TABLE Medida ADD COLUMN luz INTEGER NOT NULL DEFAULT 0") }
+        runCatching { db.execSQL("ALTER TABLE Medida ADD COLUMN cargoAncho TEXT") }
+        runCatching { db.execSQL("ALTER TABLE Medida ADD COLUMN cargoAlto TEXT") }
+        runCatching { db.execSQL("ALTER TABLE Medida ADD COLUMN motor TEXT") }
+        runCatching { db.execSQL("ALTER TABLE Medida ADD COLUMN acabado TEXT") }
+
+        // Medida: uuid (tu migración 2→3) + índice único
+        runCatching { db.execSQL("ALTER TABLE Medida ADD COLUMN uuid TEXT") }
+        runCatching {
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_Medida_uuid ON Medida(uuid)")
+        }
+
+        // Sube la versión del archivo al valor que espera Room
+        db.execSQL("PRAGMA user_version=3;")
+    } finally {
+        db.close()
+    }
+}
 
 
 @Preview(showBackground = true)
@@ -344,7 +537,7 @@ fun MisMedidasApp() {
                     navController = navController,
                     medidaId = medidaId,
                     croquisId = null,
-                    croquisVM = croquisVM
+                    viewModel = croquisVM
                 )
             }
 
@@ -366,7 +559,7 @@ fun MisMedidasApp() {
                     navController = navController,
                     medidaId = medidaId,
                     croquisId = croquisId,
-                    croquisVM = croquisVM
+                    viewModel = croquisVM
                 )
             }
         }

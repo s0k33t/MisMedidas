@@ -85,7 +85,10 @@ fun MedidaItem(
 
     LaunchedEffect(medida.luz) {
         if(medida.luz){
-            cargoAnchoFocus.requestFocus()
+            if(!medida.ud.isEmpty() || !medida.ancho.isEmpty() || !medida.alto.isEmpty()){
+                cargoAnchoFocus.requestFocus()
+            }
+
         }
     }
 

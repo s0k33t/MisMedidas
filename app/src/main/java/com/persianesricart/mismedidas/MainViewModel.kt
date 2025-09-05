@@ -55,7 +55,7 @@ class MainViewModel(private val dao: NotaDao) : ViewModel() {
 
                 val uris = arrayListOf<Uri>()
                 uris.add(uriPdf)
-
+                /*
                 // Adjuntar croquis de todas las medidas de la nota
                 val db = AppDatabase.getInstance(context)
                 val croquisDao = db.croquisDao()
@@ -73,7 +73,7 @@ class MainViewModel(private val dao: NotaDao) : ViewModel() {
                             uris.add(u)
                         }
                     }
-                }
+                }*/
 
                 val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
                     type = "application/octet-stream"
@@ -98,7 +98,202 @@ class MainViewModel(private val dao: NotaDao) : ViewModel() {
      */
     private suspend fun generatePdfFile(context: Context, nota: Nota): File {
         val medidas = dao.getMedidasByNota(nota.id)
+        val croquisDao = com.persianesricart.mismedidas.data.AppDatabase.getInstance(context).croquisDao()
 
+        // Tamaño A4 puntos (≈300dpi): ajusta si lo prefieres
+        val pageWidth = 1240
+        val pageHeight = 1754
+        val margin = 40
+
+        val left = margin
+        val right = pageWidth - margin
+        val bottomLimit = pageHeight - margin
+        val topStart = margin
+
+        val pdfDocument = PdfDocument()
+        var pageIndex = 1
+        var pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageIndex).create()
+        var page = pdfDocument.startPage(pageInfo)
+        var canvas = page.canvas
+
+        // Pinceles: texto y bitmaps (con filtro para nitidez)
+        val textPaint = Paint().apply {
+            isAntiAlias = true
+            textSize = 14f
+        }
+        val bitmapPaint = android.graphics.Paint(
+            android.graphics.Paint.ANTI_ALIAS_FLAG or
+                    android.graphics.Paint.FILTER_BITMAP_FLAG or
+                    android.graphics.Paint.DITHER_FLAG
+        )
+
+        var y = topStart
+
+        fun newPage() {
+            pdfDocument.finishPage(page)
+            pageIndex += 1
+            pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageIndex).create()
+            page = pdfDocument.startPage(pageInfo)
+            canvas = page.canvas
+            y = topStart
+        }
+
+        fun ensureSpace(heightNeeded: Int) {
+            if (y + heightNeeded > bottomLimit) newPage()
+        }
+
+        fun separator() {
+            canvas.drawText(
+                "---------------------------------------------------------------------------------------------------------",
+                left.toFloat(), y.toFloat(), textPaint
+            )
+            y += 20
+        }
+
+        fun drawHeader() {
+            canvas.drawText("Cliente: ${nota.cliente}  - Ref: ${nota.referencia}", left.toFloat(), y.toFloat(), textPaint); y += 20
+            canvas.drawText("Dirección: ${nota.direccion}", left.toFloat(), y.toFloat(), textPaint); y += 20
+            canvas.drawText("Población: ${nota.poblacion}", left.toFloat(), y.toFloat(), textPaint); y += 20
+            canvas.drawText("Teléfono: ${nota.telefono} - Móvil: ${nota.movil}", left.toFloat(), y.toFloat(), textPaint); y += 20
+            canvas.drawText("em@il: ${nota.email}", left.toFloat(), y.toFloat(), textPaint); y += 20
+            canvas.drawText("Fecha: ${nota.fecha}", left.toFloat(), y.toFloat(), textPaint); y += 30
+            canvas.drawText("Medidas:", left.toFloat(), y.toFloat(), textPaint); y += 20
+        }
+
+        // Decodifica con inSampleSize para aproximarse a reqW x reqH sin desbordar memoria
+        fun decodeBitmapAtLeast(path: String, reqW: Int, reqH: Int): android.graphics.Bitmap? {
+            val optsBounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeFile(path, optsBounds)
+            val ow = optsBounds.outWidth
+            val oh = optsBounds.outHeight
+            if (ow <= 0 || oh <= 0) return null
+
+            var inSample = 1
+            var halfW = ow / 2
+            var halfH = oh / 2
+            while (halfW / inSample >= reqW && halfH / inSample >= reqH) {
+                inSample *= 2
+            }
+
+            val opts = android.graphics.BitmapFactory.Options().apply {
+                inSampleSize = inSample.coerceAtLeast(1)
+                inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
+                inDither = true
+            }
+            return android.graphics.BitmapFactory.decodeFile(path, opts)
+        }
+
+        // Rejilla de croquis: 3 por fila, con escalado nítido y altura máxima por miniatura
+        fun drawCroquisGrid(paths: List<String>) {
+            if (paths.isEmpty()) return
+
+            val columns = 6
+            val gutter = 10
+            val contentW = (right - left)
+            val thumbW = (contentW - gutter * (columns - 1)) / columns
+            val thumbMaxH = 180 // ajusta a tu gusto
+
+            val rows = paths.chunked(columns)
+            for (row in rows) {
+
+                // decodificar aprox al tamaño objetivo (no sobredimensionar)
+                val bitmaps: List<android.graphics.Bitmap?> = row.map { p ->
+                    decodeBitmapAtLeast(p, thumbW, thumbMaxH)
+                }
+
+                // altura de la fila (máximo de alturas escaladas a ancho thumbW y capadas por thumbMaxH)
+                val rowHeight = bitmaps.maxOf { bmp ->
+                    if (bmp == null) 0 else {
+                        val w = bmp.width
+                        val h = bmp.height
+                        // escala manteniendo ratio, pero limitando por ancho y por alto máximo
+                        val scale = minOf(thumbW.toFloat() / w.toFloat(), thumbMaxH.toFloat() / h.toFloat())
+                        (h * scale).toInt().coerceAtLeast(1)
+                    }
+                }
+                if (rowHeight == 0) continue
+
+                ensureSpace(rowHeight + 12)
+
+                var x = left
+                row.forEachIndexed { i, _ ->
+                    val bmp = bitmaps[i] ?: return@forEachIndexed
+
+                    val w = bmp.width
+                    val h = bmp.height
+                    val scale = minOf(thumbW.toFloat() / w.toFloat(), thumbMaxH.toFloat() / h.toFloat())
+                    val dstW = (w * scale).toInt().coerceAtLeast(1)
+                    val dstH = (h * scale).toInt().coerceAtLeast(1)
+
+                    val src = android.graphics.Rect(0, 0, w, h)
+                    val dst = android.graphics.Rect(x, y, x + dstW, y + dstH)
+
+                    // Dibuja con filtrado (bitmapPaint) para nitidez
+                    canvas.drawBitmap(bmp, src, dst, bitmapPaint)
+                    bmp.recycle()
+
+                    // avanza a la siguiente celda (usa el ancho de celda calculado por columnas)
+                    x += thumbW + gutter
+                }
+
+                y += rowHeight + 12
+            }
+        }
+
+        drawHeader()
+
+        for (medida in medidas) {
+            // Texto de la medida
+            ensureSpace(60)
+            canvas.drawText(
+                "${medida.ud} - ${medida.ancho}x${medida.alto} - ${medida.tipo} en ${medida.modelo} ${medida.acabado ?: ""} ${medida.color}",
+                left.toFloat(), y.toFloat(), textPaint
+            )
+            y += 20
+
+            if (medida.luz) {
+                canvas.drawText(
+                    "Medidas Luz: Ancho = ${medida.cargoAncho}  Alto = ${medida.cargoAlto}",
+                    (left + 20).toFloat(), y.toFloat(), textPaint
+                )
+                y += 20
+            }
+
+            if (!medida.motor.isNullOrBlank()) {
+                canvas.drawText("Motor: ${medida.motor}", (left + 20).toFloat(), y.toFloat(), textPaint)
+                y += 20
+            }
+
+            if (!medida.comentario.isNullOrBlank()) {
+                canvas.drawText("Comentario: ${medida.comentario}", (left + 20).toFloat(), y.toFloat(), textPaint)
+                y += 20
+            }
+
+            // Croquis de esta medida
+            val croquisList = croquisDao.getByMedida(medida.id)
+            if (croquisList.isNotEmpty()) {
+                ensureSpace(20)
+                canvas.drawText("Croquis:", (left + 20).toFloat(), y.toFloat(), textPaint)
+                y += 10
+
+                val paths = croquisList.mapNotNull { c ->
+                    val f = java.io.File(c.filePath)
+                    if (f.exists()) f.absolutePath else null
+                }
+                drawCroquisGrid(paths)
+            }
+
+            separator()
+        }
+
+        pdfDocument.finishPage(page)
+        val file = File(context.cacheDir, "nota_${nota.id}.pdf")
+        pdfDocument.writeTo(FileOutputStream(file))
+        pdfDocument.close()
+        return file
+    }
+
+        /*
         val pdfDocument = PdfDocument()
         val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create() // A4
         val page = pdfDocument.startPage(pageInfo)
@@ -161,7 +356,9 @@ class MainViewModel(private val dao: NotaDao) : ViewModel() {
         pdfDocument.writeTo(FileOutputStream(file))
         pdfDocument.close()
         return file
+
     }
+    */
 
     // ---------------------
     // Export / Import (SAF)

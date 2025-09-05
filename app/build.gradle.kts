@@ -45,6 +45,8 @@ dependencies {
     //implementation("androidx.compose.material3:material3:1.2.1")
     implementation("androidx.compose.material3:material3:1.3.2")
     implementation ("androidx.navigation:navigation-compose:2.7.7")
+    //implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation ("com.google.code.gson:gson:2.10.1")
 
     // Room + Coroutine
     implementation ("androidx.room:room-runtime:2.6.1")
