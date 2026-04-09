@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun MedidaItem(
     medida: Medida,
-    ultimoMedidaId: Int,
+    ultimoMedidaUuid: String,
     ajustesViewModel: AjustesViewModel,
     tipos: List<Tipo>, // se mantiene para no romper llamadas existentes
     onUpdate: (Medida) -> Unit,
@@ -48,7 +48,8 @@ fun MedidaItem(
     //onDuplicate: (() -> Unit)? = null // opcional: si no lo pasas, el botón se desactiva
     onOpenCroquis: (Int, Int?) -> Unit,
     croquis: List<com.persianesricart.mismedidas.data.entities.Croquis>,
-    onDeleteCroquis: (com.persianesricart.mismedidas.data.entities.Croquis) -> Unit
+    onDeleteCroquis: (com.persianesricart.mismedidas.data.entities.Croquis) -> Unit,
+    onFocusConsumido: () -> Unit = {}
 
 ) {
     // Estados locales “visuales”
@@ -56,6 +57,7 @@ fun MedidaItem(
     var modelo by rememberSaveable { mutableStateOf(medida.modelo) }
     var acabado by rememberSaveable { mutableStateOf(medida.acabado ?: "") }
     var color by rememberSaveable { mutableStateOf(medida.color) }
+
 
     // Flujos de Ajustes (OJO con el nombre: evitamos colisión con el parámetro 'tipos')
     val tiposState by ajustesViewModel.tipos.collectAsState(initial = emptyList())
@@ -71,26 +73,24 @@ fun MedidaItem(
     val altoFocus = remember { FocusRequester() }
     val cargoAnchoFocus = remember { FocusRequester() }
     val cargoAltoFocus = remember { FocusRequester() }
+    var pedirFocoCargoAncho by remember { mutableStateOf(false)}
 
-    LaunchedEffect(ultimoMedidaId, medida.id) {
-        if (medida.id == ultimoMedidaId) {
+
+    LaunchedEffect(ultimoMedidaUuid) {
+        if (ultimoMedidaUuid.isNotEmpty() && medida.uuid == ultimoMedidaUuid) {
             udFocus.requestFocus()
-        }
-    }
-    LaunchedEffect(Unit) {
-        if (medida.id == ultimoMedidaId) {
-            udFocus.requestFocus()
+            onFocusConsumido()
         }
     }
 
-    LaunchedEffect(medida.luz) {
-        if(medida.luz){
-            if(!medida.ud.isEmpty() || !medida.ancho.isEmpty() || !medida.alto.isEmpty()){
-                cargoAnchoFocus.requestFocus()
-            }
-
+    LaunchedEffect(medida.luz, pedirFocoCargoAncho) {
+        if (medida.luz && pedirFocoCargoAncho) {
+            cargoAnchoFocus.requestFocus()
+            onFocusConsumido()
+            pedirFocoCargoAncho = false
         }
     }
+
 
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -118,13 +118,15 @@ fun MedidaItem(
                     label = { Text("Ud") },
                     modifier = Modifier
                         .width(80.dp)
-                        .focusRequester(udFocus)
-                        .bringIntoViewRequester(bringIntoViewRequester)
+                        .focusRequester(udFocus),
+                        //.bringIntoViewRequester(bringIntoViewRequester)
+                        /*
                         .onFocusEvent {
-                            if (it.isFocused) {
+                            //if (it.isFocused) {
+                            if(it.isFocused && medida.uuid == ultimoMedidaUuid){
                                 scope.launch { bringIntoViewRequester.bringIntoView() }
                             }
-                        },
+                        },*/
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = { anchoFocus.requestFocus() })
                 )
@@ -186,7 +188,11 @@ fun MedidaItem(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
                         checked = medida.luz,
-                        onCheckedChange = { onUpdate(medida.copy(luz = it)) }
+                        onCheckedChange = { onUpdate(medida.copy(luz = it))
+                            if (it && medida.uuid == ultimoMedidaUuid) {
+                                pedirFocoCargoAncho = true
+                            }
+                        }
                     )
                     Text("Luz")
                 }
@@ -199,6 +205,18 @@ fun MedidaItem(
                         modifier = Modifier
                             .weight(1f)
                             .focusRequester(cargoAnchoFocus),
+                        /*
+                            .bringIntoViewRequester(bringIntoViewRequester)
+
+                            .onFocusEvent {
+                                if (it.isFocused && medida.uuid == ultimoMedidaUuid) {
+                                    scope.launch {
+                                        bringIntoViewRequester.bringIntoView()
+                                    }
+                                }
+                            },
+                            */
+
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         keyboardActions = KeyboardActions(onNext = { cargoAltoFocus.requestFocus() })
                     )

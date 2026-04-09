@@ -44,8 +44,8 @@ class   NoteViewModel(private val dao: NotaDao) : ViewModel() {
     private val _medidas = mutableStateListOf<Medida>()
     val medidas: List<Medida> get() = _medidas
 
-    private val _ultimoMedidaId = mutableStateOf(-1)
-    val ultimoMedidaId: Int get() = _ultimoMedidaId.value
+    private val _ultimoMedidaUuid = mutableStateOf("")
+    val ultimoMedidaUuid: String get() = _ultimoMedidaUuid.value
 
     fun onClienteChanged(value: String) { _cliente.value = value }
     fun onReferenciaChanged(value: String) { _referencia.value = value }
@@ -54,7 +54,7 @@ class   NoteViewModel(private val dao: NotaDao) : ViewModel() {
     fun onTelefonoChanged(value: String) { _telefono.value = value }
     fun onMovilChanged(value: String) { _movil.value = value }
     fun onEmailChanged(value: String) { _email.value = value }
-    fun setUltimoMedidaId(id: Int) { _ultimoMedidaId.value = id }
+    fun setUltimoMedidaUuid(uuid: String) { _ultimoMedidaUuid.value = uuid }
 
     fun addMedida(medida: Medida) {
         _medidas.add(medida)
